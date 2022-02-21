@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -328,9 +329,94 @@ void q_reverse(struct list_head *head)
     } while (pos != head);
 }
 
+/* Split the list into two sublists, and return the middle node of
+   the list */
+static struct list_head *__q_split_into_two(struct list_head *head)
+{
+    struct list_head *fast, *slow;
+
+    /* Find the middle node of the list */
+    for (fast = head, slow = head; fast && fast->next;
+         fast = fast->next->next, slow = slow->next)
+        ;
+
+    slow->prev->next = NULL;
+
+    return slow;
+}
+
+/* Merge two sorted list, and return the head of sorted list */
+static struct list_head *__q_merge_two_lists(struct list_head *left,
+                                             struct list_head *right)
+{
+    struct list_head *head, **ptr;
+
+    head = NULL;
+    ptr = &head;
+
+    for (; left && right; ptr = &(*ptr)->next) {
+        element_t *e_left, *e_right;
+
+        e_left = list_entry(left, element_t, list);
+        e_right = list_entry(right, element_t, list);
+
+        if (strcmp(e_left->value, e_right->value) <= 0) {
+            *ptr = left;
+            left = left->next;
+        } else {
+            *ptr = right;
+            right = right->next;
+        }
+    }
+
+    *ptr = (struct list_head *) ((uintptr_t) left | (uintptr_t) right);
+
+    return head;
+}
+
+/* Recursive merge sort function, return the sorted sublist
+   which is singly linked list */
+static struct list_head *__q_sort(struct list_head *left)
+{
+    if (left->next) {
+        struct list_head *right;
+
+        right = __q_split_into_two(left);
+
+        left = __q_sort(left);
+        right = __q_sort(right);
+
+        return __q_merge_two_lists(left, right);
+    }
+    return left;
+}
+
 /*
  * Sort elements of queue in ascending order
  * No effect if q is NULL or empty. In addition, if q has only one
  * element, do nothing.
  */
-void q_sort(struct list_head *head) {}
+void q_sort(struct list_head *head)
+{
+    struct list_head *list, *pos, *prev;
+
+    if (!head || list_empty(head) || list_is_singular(head))
+        return;
+
+    /* Make the last node's next to NULL, avoiding the result of
+       __q_split_into_two() is wrong */
+    head->prev->next = NULL;
+
+    list = head->next;
+    list = __q_sort(list);
+
+    /* Now the list is a sorted singly-linked list,
+       it's time to recover the list into doubly-linked list */
+    head->next = list;
+
+    for (prev = head, pos = head->next; pos; prev = pos, pos = pos->next)
+        pos->prev = prev;
+
+    prev->next = head;
+    head->prev = prev;
+}
