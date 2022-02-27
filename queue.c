@@ -247,40 +247,24 @@ bool q_delete_mid(struct list_head *head)
  */
 bool q_delete_dup(struct list_head *head)
 {
-    element_t *pos, *safe, *start = NULL;
-    char *prev_value = "";
+    element_t *pos, *next;
+    int dup = 0;
 
     if (!head)
         return false;
 
-    list_for_each_entry_safe (pos, safe, head, list) {
-        if (!strcmp(pos->value, prev_value)) {
-            /* Record the start queue element of the duplicate set,
-               which will be delete later */
-            if (!start)
-                start = list_entry(pos->list.prev, element_t, list);
-
+    list_for_each_entry_safe (pos, next, head, list) {
+        if (&next->list != head && !strcmp(pos->value, next->value)) {
             list_del(&pos->list);
             free(pos->value);
             free(pos);
-        } else {
-            prev_value = pos->value;
-
-            /* Defered deletion of the start of the duplicate set */
-            if (start) {
-                list_del(&start->list);
-                free(start->value);
-                free(start);
-                start = NULL;
-            }
+            dup = 1;
+        } else if (dup) {
+            list_del(&pos->list);
+            free(pos->value);
+            free(pos);
+            dup = 0;
         }
-    }
-
-    /* Defered deletion of the start of the duplicate set */
-    if (start) {
-        list_del(&start->list);
-        free(start->value);
-        free(start);
     }
 
     return true;
